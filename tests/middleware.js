@@ -29,6 +29,10 @@ module.exports = (req, res, next) => {
       if (chunk){
         chunks.push(Buffer.from(chunk));
       }
+      oldEnd.apply(res, arguments);
+    }
+
+    res.once('finish', function(){
       
       const reqKeys = [
         "httpVersionMajor",
@@ -44,20 +48,28 @@ module.exports = (req, res, next) => {
         // "host",  deprecated
         "hostname",
         "method",
-        "baseUrl",
+        // "baseUrl", tested after
         "originalUrl",
-        "params",
+        // "params", tested after
         "query",
         "secure",
         "fresh",
         "stale",
         "subdomains",
         "xhr",
-        "body",
+        // "body", tested after
       ];
       console.log('REQUEST');
       for (const key of reqKeys) {
         console.log('req.' + key, JSON.stringify(req[key])?.toLowerCase());
+      }
+      console.log('req.params', JSON.stringify(req.params ?? {})?.toLowerCase()); // on express is undefined when no params
+      console.log('req.baseUrl', JSON.stringify(req.baseUrl ?? '')?.toLowerCase()); // on express is undefined
+
+      if( req.headers['content-type']?.includes('octet-stream')  ){
+        console.log('res.body', 'stream');
+      } else {
+        console.log('req.body', JSON.stringify(req.body)?.toLowerCase());
       }
 
       logHeaders('req.headers', req.headers);
@@ -76,14 +88,16 @@ module.exports = (req, res, next) => {
       const resHeaders = res.getHeaders();
       logHeaders('res.headers', resHeaders);
 
+      const size = chunks.reduce((acc, chunk) => acc + chunk.byteLength, 0);
       if( resHeaders['accept-encoding'] ){
-        console.log('res.body', 'compressed');
+        console.log('res.body', 'compressed size '+ size);
+      } else if( resHeaders["content-type"]?.toLowerCase() === "application/octet-stream" ){
+        console.log('res.body', 'stream size '+ size);
       } else {
         const body = Buffer.concat(chunks).toString('utf8');
-        console.log('res.body', body);
+        console.log('res.body', body.substring(0, 5_000));
       }
 
-      oldEnd.apply(res, arguments);
-    };
+    });
     next();
   };
