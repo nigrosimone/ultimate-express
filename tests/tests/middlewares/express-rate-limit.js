@@ -5,7 +5,7 @@ const { rateLimit } = require('express-rate-limit');
 
 const app = express();
 
-// app.use(require("../../middleware"));
+app.use(require("../../middleware"));
 
 app.use(rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutes

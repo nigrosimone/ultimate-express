@@ -3,7 +3,7 @@
 const express = require("express");
 
 const app = express({ threads: 0 });
-// app.use(require("../../middleware"));
+app.use(require("../../middleware"));
 
 const app2 = express({ threads: 2 });
 // app2.use(require("../../middleware"));
