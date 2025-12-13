@@ -64,27 +64,32 @@ function parseBenchmarksStdout (text) {
   return results
 }
 
-function compareResults (featureBranch, mainBranch) {
-  for (const { name, alignedName, result: mainBranchResult } of mainBranch) {
-    const featureBranchBenchmark = featureBranch.find(result => result.name === name)
-    if (featureBranchBenchmark) {
-      const featureBranchResult = featureBranchBenchmark.result
-      const percent = (featureBranchResult - mainBranchResult) * 100 / mainBranchResult
-      const roundedPercent = Math.round(percent * 100) / 100
+function compareResults(featureBranch, mainBranch) {
+  const metrics = ["rps", "throughput", "latencyAvg", "latencyP95", "latencyP99"];
 
-      const percentString = roundedPercent > 0 ? `+${roundedPercent}%` : `${roundedPercent}%`
-      const message = alignedName + percentString.padStart(7, '.')
+  for (const { name } of mainBranch) {
+    const fb = featureBranch.find(result => result.name === name);
+    const mb = mainBranch.find(result => result.name === name);
 
-      if (roundedPercent > PERCENT_THRESHOLD) {
-        console.log(`${greenColor}${message}${resetColor}`)
-      } else if (roundedPercent < -PERCENT_THRESHOLD) {
-        console.log(`${redColor}${message}${resetColor}`)
-      } else {
-        console.log(message)
+    if (fb && mb) {
+      console.log(`\nBenchmark: ${name}`);
+      for (const metric of metrics) {
+        const fbVal = fb[metric];
+        const mbVal = mb[metric];
+        const percent = ((fbVal - mbVal) * 100) / mbVal;
+        const rounded = Math.round(percent * 100) / 100;
+        const percentString = rounded > 0 ? `+${rounded}%` : `${rounded}%`;
+
+        let color = "";
+        if (rounded > PERCENT_THRESHOLD) color = greenColor;
+        else if (rounded < -PERCENT_THRESHOLD) color = redColor;
+
+        console.log(`${color}${metric.padEnd(12)}: ${fbVal} vs ${mbVal} (${percentString})${resetColor}`);
       }
     }
   }
 }
+
 
 (async function () {
   const branches = await git.branch()

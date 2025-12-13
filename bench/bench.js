@@ -78,7 +78,13 @@ async function runBenchmark(benchmark) {
       },
       (err, result) => {
         if (err) return reject(err);
-        resolve(result.requests.average);
+        resolve({
+          rps: result.requests.average,
+          throughput: result.throughput.average,
+          latencyAvg: result.latency.average,
+          latencyP95: result.latency.p95,
+          latencyP99: result.latency.p99,
+        });
       }
     );
 
