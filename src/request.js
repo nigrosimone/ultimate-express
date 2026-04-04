@@ -352,11 +352,7 @@ module.exports = class Request extends Readable {
         }
         field = field.toLowerCase();
         if(field === 'referrer' || field === 'referer') {
-            const res = this.headers['referrer'];
-            if(!res) {
-                return this.headers['referer'];
-            }
-            return res;
+            return this.headers['referrer'];
         } 
         return this.headers[field];
     }
