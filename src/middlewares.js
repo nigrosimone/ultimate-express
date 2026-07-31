@@ -267,6 +267,32 @@ function createBodyParser(defaultType, beforeReturn) {
             // if we are fast enough (not async), we can do it
             // otherwise we need to use a stream since it already started streaming it
             if(!req.receivedData) {
+                // uWS can accumulate the whole body natively and hand it over in a single call,
+                // which skips one JS callback per chunk and the final Buffer.concat.
+                // not usable when inflating, since options.limit applies to the decompressed
+                // size while collectBody can only cap the compressed bytes it receives.
+                if(!inflate && Number.isFinite(options.limit)) {
+                    req._res.collectBody(options.limit, ab => {
+                        // uWS returns null when the body exceeded the limit
+                        if(ab === null) {
+                            return next(new Error('Request entity too large'));
+                        }
+                        // uWS may hand over memory it owns and detaches right after this call,
+                        // so only parsers that don't keep the buffer around can view it directly
+                        const buf = beforeReturn.retainsBuffer || options.verify
+                            ? Buffer.from(ab.slice(0))
+                            : Buffer.from(ab);
+                        if(options.verify) {
+                            try {
+                                options.verify(req, res, buf);
+                            } catch(e) {
+                                return next(e);
+                            }
+                        }
+                        beforeReturn(req, res, next, options, buf);
+                    });
+                    return;
+                }
                 req._res.onData((ab, isLast) => {
                     onData(ab);
                     if(isLast) {
@@ -300,10 +326,14 @@ const json = createBodyParser('application/json', function(req, res, next, optio
     next();
 });
 
-const raw = createBodyParser('application/octet-stream', function(req, res, next, options, buf) {
+function rawParser(req, res, next, options, buf) {
     req.body = buf;
     next();
-});
+}
+// req.body outlives the parser, so this one needs its own copy of the body
+rawParser.retainsBuffer = true;
+
+const raw = createBodyParser('application/octet-stream', rawParser);
 
 const text = createBodyParser('text/plain', function(req, res, next, options, buf) {
     let contentType = req.headers['content-type'];
